@@ -1,0 +1,33 @@
+{
+  "manifest_version": 2,
+  "name": "Aria2 Downloader Bridge",
+  "version": "1.0.0",
+  "description": "将 Firefox 下载请求发送到 aria2，尽量携带登录态与请求头。",
+  "permissions": [
+    "downloads",
+    "storage",
+    "cookies",
+    "tabs",
+    "contextMenus",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "browser_action": {
+    "default_title": "Aria2 Downloader Bridge"
+  },
+  "applications": {
+    "gecko": {
+      "id": "aria2-downloader-bridge@local"
+    }
+  }
+}

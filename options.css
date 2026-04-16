@@ -1,0 +1,119 @@
+:root {
+  --bg: #f7f3eb;
+  --ink: #1d1d1a;
+  --muted: #625d54;
+  --panel: rgba(255, 255, 255, 0.72);
+  --line: rgba(29, 29, 26, 0.12);
+  --accent: #0f6b57;
+  --shadow: 0 24px 60px rgba(28, 24, 18, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top right, rgba(15, 107, 87, 0.16), transparent 26%),
+    linear-gradient(180deg, #efe2cb, var(--bg));
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.layout {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 24px 72px;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 8px 0 10px;
+  font-size: 42px;
+  line-height: 1.05;
+}
+
+.lead {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+  margin-top: 32px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+
+label span {
+  color: var(--muted);
+}
+
+input,
+select,
+button {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  font: inherit;
+}
+
+input,
+select {
+  background: rgba(255, 255, 255, 0.84);
+}
+
+input[type="checkbox"] {
+  min-height: auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: end;
+}
+
+button {
+  min-width: 180px;
+  color: white;
+  background: linear-gradient(135deg, #0f6b57, #0b5142);
+  cursor: pointer;
+}
+
+.note {
+  margin-top: 24px;
+  padding: 18px 20px;
+  border-left: 4px solid var(--accent);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.status {
+  margin-top: 18px;
+  color: var(--muted);
+}

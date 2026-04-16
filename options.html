@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aria2 下载设置</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="hero">
+        <p class="eyebrow">Firefox Extension</p>
+        <h1>Aria2 下载设置</h1>
+        <p class="lead">
+          将浏览器下载自动转发给 aria2，并尽量携带当前登录态所需的请求头与 Cookie。
+        </p>
+      </section>
+
+      <form id="form" class="grid">
+        <label>
+          <span>启用扩展</span>
+          <input id="enabled" type="checkbox" />
+        </label>
+        <label>
+          <span>自动监听浏览器下载</span>
+          <input id="autoPrompt" type="checkbox" />
+        </label>
+        <label>
+          <span>RPC 协议</span>
+          <select id="rpcProtocol">
+            <option value="ws">ws</option>
+            <option value="wss">wss</option>
+          </select>
+        </label>
+        <label>
+          <span>主机</span>
+          <input id="rpcHost" type="text" />
+        </label>
+        <label>
+          <span>端口</span>
+          <input id="rpcPort" type="number" min="1" max="65535" />
+        </label>
+        <label>
+          <span>路径</span>
+          <input id="rpcPath" type="text" />
+        </label>
+        <label>
+          <span>RPC 密钥</span>
+          <input id="rpcSecret" type="password" />
+        </label>
+        <label>
+          <span>aria2 下载目录</span>
+          <input id="downloadDir" type="text" placeholder="可留空" />
+        </label>
+        <label>
+          <span>User-Agent 来源</span>
+          <select id="userAgentMode">
+            <option value="browser">使用扩展运行环境 UA</option>
+            <option value="captured">优先使用抓到的请求 UA</option>
+          </select>
+        </label>
+        <div class="actions">
+          <button type="submit">保存设置</button>
+        </div>
+      </form>
+
+      <section class="note">
+        <h2>说明</h2>
+        <p>
+          对依赖 Cookie、Referer、Authorization 的站点通常有效；如果目标站额外校验客户端 IP、TLS 指纹或一次性签名，aria2 端仍可能失败。
+        </p>
+      </section>
+      <p id="status" class="status"></p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
