@@ -31,15 +31,16 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
 .task-form {
   display: flex;
-  flex: 1;
   flex-direction: column;
-  padding: 12px;
+  min-height: 100%;
+  padding: 10px;
   background: var(--panel);
   box-shadow: inset 0 0 0 1px var(--line), var(--shadow);
 }
@@ -49,7 +50,7 @@ input {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .dialog-caption {
@@ -92,6 +93,65 @@ h1 {
   background: white;
 }
 
+.header-preview {
+  margin-top: 6px;
+  margin-left: 100px;
+  padding: 0;
+}
+
+.header-preview > summary {
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.header-preview > summary::-webkit-details-marker {
+  display: none;
+}
+
+.header-preview > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1em;
+  margin-right: 4px;
+  transition: transform 120ms ease;
+}
+
+.header-preview[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.header-preview > textarea {
+  width: 100%;
+  min-height: 108px;
+  max-height: 180px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: white;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.header-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.subtle-button {
+  min-width: auto;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.header-preview[open] {
+  margin-top: 6px;
+}
+
 .input-label > input[readonly] {
   color: #4b473f;
   background: #f4f1ea;
@@ -100,9 +160,9 @@ h1 {
 .warning-text,
 .hint,
 .status {
-  margin: 6px 0 0 100px;
+  margin: 4px 0 0 100px;
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.35;
   color: var(--muted);
 }
 
@@ -118,11 +178,7 @@ h1 {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-top: 10px;
-}
-
-.spacer {
-  flex: 1;
+  margin-top: 8px;
 }
 
 .dialog-button {
@@ -167,12 +223,16 @@ h1 {
 
 @media (max-width: 640px) {
   .task-form {
-    padding: 12px;
+    padding: 10px;
   }
 
   .input-grid {
     grid-template-columns: 1fr;
     gap: 6px;
+  }
+
+  .header-preview {
+    margin-left: 0;
   }
 
   .input-label > span {

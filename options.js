@@ -8,14 +8,19 @@ const fields = {
   rpcSecret: document.getElementById("rpcSecret"),
   downloadDir: document.getElementById("downloadDir"),
   userAgentMode: document.getElementById("userAgentMode"),
+  basicHeadersOnly: document.getElementById("basicHeadersOnly"),
+  extraHeaderNames: document.getElementById("extraHeaderNames"),
 };
 
 const status = document.getElementById("status");
 const form = document.getElementById("form");
+const i18n = window.appI18n;
 
 function setStatus(message) {
   status.textContent = message;
 }
+
+i18n.apply();
 
 async function loadConfig() {
   const config = await browser.runtime.sendMessage({ type: "get-config" });
@@ -28,6 +33,8 @@ async function loadConfig() {
   fields.rpcSecret.value = config.rpcSecret;
   fields.downloadDir.value = config.downloadDir;
   fields.userAgentMode.value = config.userAgentMode;
+  fields.basicHeadersOnly.checked = Boolean(config.basicHeadersOnly);
+  fields.extraHeaderNames.value = config.extraHeaderNames || "";
 }
 
 form.addEventListener("submit", async (event) => {
@@ -42,6 +49,8 @@ form.addEventListener("submit", async (event) => {
     rpcSecret: fields.rpcSecret.value,
     downloadDir: fields.downloadDir.value.trim(),
     userAgentMode: fields.userAgentMode.value,
+    basicHeadersOnly: fields.basicHeadersOnly.checked,
+    extraHeaderNames: fields.extraHeaderNames.value.trim(),
   };
 
   await browser.runtime.sendMessage({
@@ -49,9 +58,9 @@ form.addEventListener("submit", async (event) => {
     payload,
   });
 
-  setStatus("设置已保存。");
+  setStatus(i18n.t("options_status_saved"));
 });
 
 loadConfig()
-  .then(() => setStatus("已加载当前设置。"))
-  .catch((error) => setStatus(error.message || "设置读取失败"));
+  .then(() => setStatus(i18n.t("options_status_loaded")))
+  .catch((error) => setStatus(error.message || i18n.t("options_status_load_failed")));

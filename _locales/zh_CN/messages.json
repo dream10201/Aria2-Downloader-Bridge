@@ -1,0 +1,17 @@
+{
+  "extension_name": {
+    "message": "Aria2 下载桥"
+  },
+  "extension_description": {
+    "message": "将 Firefox 下载请求发送到 aria2，并尽量携带登录态相关请求头。"
+  },
+  "browser_action_title": {
+    "message": "Aria2 下载桥"
+  },
+  "menu_send_link_to_aria2": {
+    "message": "用 aria2 下载该链接"
+  },
+  "menu_open_options": {
+    "message": "Aria2 下载设置"
+  }
+}

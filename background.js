@@ -8,6 +8,8 @@ const DEFAULT_CONFIG = {
   rpcSecret: "",
   downloadDir: "",
   userAgentMode: "browser",
+  basicHeadersOnly: false,
+  extraHeaderNames: "",
 };
 
 const pendingDecisions = new Map();
@@ -25,6 +27,14 @@ const EXCLUDED_APPLICATION_TYPES = new Set([
   "x-ecmascript",
   "xhtml+xml",
 ]);
+
+function msg(key, fallback = "") {
+  try {
+    return browser.i18n.getMessage(key) || fallback || key;
+  } catch {
+    return fallback || key;
+  }
+}
 
 function normalizeUrl(url) {
   try {
@@ -94,8 +104,8 @@ function headersToMap(headers = []) {
   return map;
 }
 
-function pickUsefulHeaders(headers = []) {
-  const allowed = new Set([
+function getBaseAllowedHeaderNames() {
+  return new Set([
     "cookie",
     "authorization",
     "referer",
@@ -105,6 +115,53 @@ function pickUsefulHeaders(headers = []) {
     "accept-language",
     "range",
   ]);
+}
+
+function parseExtraHeaderNames(value = "") {
+  return new Set(
+    String(value)
+      .split(/[\n,]/)
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function isUnsafeForwardHeader(name) {
+  return [
+    "host",
+    "content-length",
+    "connection",
+    "proxy-connection",
+    "upgrade",
+    "sec-fetch-site",
+    "sec-fetch-mode",
+    "sec-fetch-user",
+    "sec-fetch-dest",
+    "sec-ch-ua",
+    "sec-ch-ua-mobile",
+    "sec-ch-ua-platform",
+  ].includes(name);
+}
+
+function pickUsefulHeaders(headers = [], config = DEFAULT_CONFIG) {
+  const allowed = config.basicHeadersOnly ? getBaseAllowedHeaderNames() : new Set();
+  const extraAllowed = parseExtraHeaderNames(config.extraHeaderNames);
+
+  if (!config.basicHeadersOnly) {
+    for (const header of headers) {
+      const lowerName = header?.name?.toLowerCase();
+      if (!lowerName || isUnsafeForwardHeader(lowerName)) {
+        continue;
+      }
+      allowed.add(lowerName);
+    }
+  }
+
+  for (const name of extraAllowed) {
+    if (!isUnsafeForwardHeader(name)) {
+      allowed.add(name);
+    }
+  }
 
   return cloneHeaders(headers).filter((header) =>
     allowed.has(header.name.toLowerCase())
@@ -295,13 +352,20 @@ async function getCookiesHeader(url) {
 }
 
 async function buildAria2Headers(url, context = {}) {
+  if (Array.isArray(context.aria2Headers) && context.aria2Headers.length) {
+    return context.aria2Headers
+      .map((line) => String(line).trim())
+      .filter((line) => line && line.includes(":"));
+  }
+
   const config = await getConfig();
   const normalizedUrl = normalizeUrl(url);
   const capturedHeaders = pickUsefulHeaders(
     context.capturedHeaders ||
       requestHeadersByUrl.get(normalizedUrl) ||
       requestHeadersByUrl.get(url) ||
-      []
+      [],
+    config
   );
   const headerMap = headersToMap(capturedHeaders);
 
@@ -348,6 +412,27 @@ async function buildAria2Headers(url, context = {}) {
     }
   }
 
+  for (const header of capturedHeaders) {
+    const lowerName = header.name.toLowerCase();
+    const alreadyHandled = new Set([
+      "cookie",
+      "referer",
+      "origin",
+      "user-agent",
+      "authorization",
+      "accept",
+      "accept-language",
+      "range",
+    ]);
+    if (alreadyHandled.has(lowerName)) {
+      continue;
+    }
+    if (!header.value) {
+      continue;
+    }
+    aria2Headers.push(`${header.name}: ${header.value}`);
+  }
+
   return aria2Headers;
 }
 
@@ -383,7 +468,45 @@ async function sendToAria2(url, context = {}) {
   return jsonRpcCall(buildRpcUrl(config), payload);
 }
 
+async function openCenteredPopup(url, width, height) {
+  let left;
+  let top;
+
+  try {
+    if (browser.windows && typeof browser.windows.getLastFocused === "function") {
+      const currentWindow = await browser.windows.getLastFocused();
+      if (
+        Number.isFinite(currentWindow.left) &&
+        Number.isFinite(currentWindow.top) &&
+        Number.isFinite(currentWindow.width) &&
+        Number.isFinite(currentWindow.height)
+      ) {
+        left = Math.max(
+          0,
+          currentWindow.left + Math.floor((currentWindow.width - width) / 2)
+        );
+        top = Math.max(
+          0,
+          currentWindow.top + Math.floor((currentWindow.height - height) / 2)
+        );
+      }
+    }
+  } catch {
+    // 获取当前窗口位置失败时，回退到浏览器默认弹窗位置。
+  }
+
+  return browser.windows.create({
+    url,
+    type: "popup",
+    width,
+    height,
+    left,
+    top,
+  });
+}
+
 async function createPromptFromIntercept(payload) {
+  const aria2Headers = await buildAria2Headers(payload.url, payload);
   const promptId = crypto.randomUUID();
   pendingDecisions.set(promptId, {
     type: payload.type || "intercepted-download",
@@ -392,32 +515,39 @@ async function createPromptFromIntercept(payload) {
     referrer: payload.referrer || "",
     tabId: payload.tabId,
     capturedHeaders: payload.capturedHeaders || [],
+    autoAria2Headers: aria2Headers,
+    aria2Headers,
   });
 
-  const popup = await browser.windows.create({
-    url: browser.runtime.getURL(`confirm.html?id=${encodeURIComponent(promptId)}`),
-    type: "popup",
-    width: 620,
-    height: 430,
-  });
+  const popup = await openCenteredPopup(
+    browser.runtime.getURL(`confirm.html?id=${encodeURIComponent(promptId)}`),
+    620,
+    450
+  );
   activePrompts.set(promptId, popup.id);
 }
 
 async function promptForContextLink(info, tab) {
-  const promptId = crypto.randomUUID();
-  pendingDecisions.set(promptId, {
+  const context = {
     type: "context-link",
     url: info.linkUrl,
     filename: "",
     referrer: info.pageUrl || tab?.url || "",
+    capturedHeaders: [],
+  };
+  const aria2Headers = await buildAria2Headers(context.url, context);
+  const promptId = crypto.randomUUID();
+  pendingDecisions.set(promptId, {
+    ...context,
+    autoAria2Headers: aria2Headers,
+    aria2Headers,
   });
 
-  const popup = await browser.windows.create({
-    url: browser.runtime.getURL(`confirm.html?id=${encodeURIComponent(promptId)}`),
-    type: "popup",
-    width: 620,
-    height: 430,
-  });
+  const popup = await openCenteredPopup(
+    browser.runtime.getURL(`confirm.html?id=${encodeURIComponent(promptId)}`),
+    620,
+    450
+  );
   activePrompts.set(promptId, popup.id);
 }
 
@@ -451,13 +581,14 @@ async function openTabDownload(pending) {
 }
 
 browser.webRequest.onBeforeSendHeaders.addListener(
-  (details) => {
+  async (details) => {
     if (!details.url.startsWith("http")) {
       return {};
     }
 
+    const config = await getConfig();
     const normalizedUrl = normalizeUrl(details.url);
-    const headers = pickUsefulHeaders(details.requestHeaders || []);
+    const headers = pickUsefulHeaders(details.requestHeaders || [], config);
     requestHeadersByRequestId.set(details.requestId, {
       url: normalizedUrl,
       headers,
@@ -536,13 +667,13 @@ browser.webRequest.onErrorOccurred.addListener(
 
 browser.contextMenus.create({
   id: "send-link-to-aria2",
-  title: "用 aria2 下载该链接",
+  title: msg("menu_send_link_to_aria2", "Download this link with aria2"),
   contexts: ["link"],
 });
 
 browser.contextMenus.create({
   id: "open-aria2-options",
-  title: "Aria2 下载设置",
+  title: msg("menu_open_options", "Aria2 Download Settings"),
   contexts: ["browser_action"],
 });
 
@@ -573,6 +704,7 @@ browser.runtime.onMessage.addListener((message) => {
   if (message.type === "save-config") {
     return setConfig({
       ...DEFAULT_CONFIG,
+      preserveCustomHeaders: undefined,
       ...(message.payload || {}),
     }).then(() => ({ ok: true }));
   }
@@ -591,11 +723,17 @@ browser.runtime.onMessage.addListener((message) => {
       if (message.payload && typeof message.payload === "object") {
         pending.filename = extractFileName(message.payload.filename || "", pending.url);
         pending.referrer = message.payload.referrer || pending.referrer || "";
+        pending.aria2Headers = Array.isArray(message.payload.aria2Headers)
+          ? message.payload.aria2Headers
+          : await buildAria2Headers(pending.url, pending);
       }
 
       if (pending.type === "context-link" || pending.type === "intercepted-download") {
         if (message.action === "browser") {
-          await openTabDownload(pending);
+          await openTabDownload({
+            ...pending,
+            aria2Headers: pending.autoAria2Headers || undefined,
+          });
           pendingDecisions.delete(message.id);
           return { ok: true, mode: "browser" };
         }

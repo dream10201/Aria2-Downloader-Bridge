@@ -1,0 +1,17 @@
+{
+  "extension_name": {
+    "message": "Aria2 Downloader Bridge"
+  },
+  "extension_description": {
+    "message": "Send Firefox downloads to aria2 and preserve login-related request headers whenever possible."
+  },
+  "browser_action_title": {
+    "message": "Aria2 Downloader Bridge"
+  },
+  "menu_send_link_to_aria2": {
+    "message": "Download this link with aria2"
+  },
+  "menu_open_options": {
+    "message": "Aria2 Download Settings"
+  }
+}

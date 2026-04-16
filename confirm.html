@@ -3,42 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>选择下载方式</title>
+    <title data-i18n="confirm_page_title">选择下载方式</title>
     <link rel="stylesheet" href="confirm.css" />
   </head>
   <body>
     <form class="task-form monitor" role="dialog" aria-modal="true" aria-labelledby="title">
       <header class="dialog-header">
         <div>
-          <p class="dialog-caption">下载拦截</p>
-          <h1 id="title">选择下载方式</h1>
+          <p class="dialog-caption" data-i18n="confirm_caption">下载拦截</p>
+          <h1 id="title" data-i18n="confirm_title">选择下载方式</h1>
         </div>
-        <button id="cancel" class="dialog-button close-button" type="button" aria-label="关闭">×</button>
+        <button id="cancel" class="dialog-button close-button" type="button" data-i18n-aria-label="confirm_close_aria" aria-label="关闭">×</button>
       </header>
       <div class="input-grid">
         <label class="input-label">
-          <span>下载地址</span>
+          <span data-i18n="confirm_url">下载地址</span>
           <input id="url" type="url" readonly />
         </label>
         <label class="input-label">
-          <span>文件名</span>
+          <span data-i18n="confirm_filename">文件名</span>
           <input id="filename" type="text" autocomplete="off" />
         </label>
         <label class="input-label">
-          <span>来源页</span>
+          <span data-i18n="confirm_referrer">来源页</span>
           <input id="referrer" type="url" autocomplete="off" />
         </label>
       </div>
-      <p class="warning-text">会尽量附带 Cookie、Referer、Authorization、User-Agent 等请求头。</p>
-      <p class="hint">若目标站校验出口 IP、时效签名或浏览器指纹，aria2 端仍可能失败。</p>
-      <div class="spacer"></div>
+      <details class="header-preview">
+        <summary data-i18n="confirm_headers">发送给 aria2 的 Header</summary>
+        <div class="header-preview-actions">
+          <button id="resetHeaders" class="dialog-button subtle-button" type="button" data-i18n="confirm_reset_headers">恢复自动生成</button>
+        </div>
+        <textarea id="headers" rows="8"></textarea>
+      </details>
+      <p class="warning-text" data-i18n="confirm_warning">会尽量附带 Cookie、Referer、Authorization、User-Agent 等请求头。</p>
+      <p class="hint" data-i18n="confirm_hint">若目标站校验出口 IP、时效签名或浏览器指纹，aria2 端仍可能失败。</p>
       <div class="actions">
-        <button id="browser" class="dialog-button" type="button">继续浏览器下载</button>
+        <button id="browser" class="dialog-button" type="button" data-i18n="confirm_browser">继续浏览器下载</button>
         <div class="spacer"></div>
-        <button id="aria2" class="dialog-button primary" type="button">发送到 aria2</button>
+        <button id="aria2" class="dialog-button primary" type="button" data-i18n="confirm_aria2">发送到 aria2</button>
       </div>
       <p id="status" class="status" aria-live="polite"></p>
     </form>
+    <script src="i18n.js"></script>
     <script src="confirm.js"></script>
   </body>
 </html>
