@@ -19,12 +19,17 @@
       "background.js"
     ]
   },
+  "icons": {
+    "48": "icon.svg",
+    "96": "icon.svg"
+  },
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
   },
   "browser_action": {
-    "default_title": "__MSG_browser_action_title__"
+    "default_title": "__MSG_browser_action_title__",
+    "default_icon": "icon.svg"
   },
   "applications": {
     "gecko": {

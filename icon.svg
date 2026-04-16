@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Aria2 Downloader Bridge icon">
+  <defs>
+    <linearGradient id="bg" x1="16" y1="12" x2="78" y2="84" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f8e70"/>
+      <stop offset="1" stop-color="#0a5d4a"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="26" y1="20" x2="64" y2="66" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fffdf8"/>
+      <stop offset="1" stop-color="#efe5d4"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#083d31" flood-opacity=".24"/>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="80" height="80" rx="24" fill="url(#bg)"/>
+
+  <g filter="url(#shadow)">
+    <path d="M32 22h28c6.627 0 12 5.373 12 12v29.5c0 6.351-4.936 11.547-11.18 11.961l-1.82.039H39c-6.627 0-12-5.373-12-12V34c0-6.627 5.373-12 12-12z" fill="url(#plate)"/>
+    <path d="M43 17.5h18c2.485 0 4.5 2.015 4.5 4.5V31H38.5v-9c0-2.485 2.015-4.5 4.5-4.5z" fill="#f7efe2"/>
+  </g>
+
+  <path d="M38.5 31h27" stroke="#d6c3aa" stroke-width="2"/>
+
+  <path d="M48 39c1.657 0 3 1.343 3 3v11.757l3.879-3.878a3 3 0 1 1 4.242 4.242l-9 9a3 3 0 0 1-4.242 0l-9-9a3 3 0 0 1 4.242-4.242L45 53.757V42c0-1.657 1.343-3 3-3z" fill="#0d7a5f"/>
+
+  <path d="M31 63c6.111 0 10.186-6.5 17-6.5S58.889 63 65 63" fill="none" stroke="#e08b28" stroke-linecap="round" stroke-width="4.5"/>
+  <circle cx="66.5" cy="62.8" r="3.2" fill="#e08b28"/>
+</svg>
