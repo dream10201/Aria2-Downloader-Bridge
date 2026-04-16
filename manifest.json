@@ -31,9 +31,14 @@
     "default_title": "__MSG_browser_action_title__",
     "default_icon": "icon.svg"
   },
-  "applications": {
+  "browser_specific_settings": {
     "gecko": {
-      "id": "aria2-downloader-bridge@local"
+      "id": "aria2-downloader-bridge@local",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   }
 }
