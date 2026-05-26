@@ -18,6 +18,11 @@ const requestHeadersByRequestId = new Map();
 const activePrompts = new Map();
 const ignoredDownloadUrls = new Map();
 const pendingIntercepts = new Map();
+const rpcPendingRequests = new Map();
+let rpcSocket = null;
+let rpcEndpoint = "";
+let rpcConnecting = null;
+let rpcKeepaliveTimer = null;
 const EXCLUDED_APPLICATION_TYPES = new Set([
   "json",
   "xml",
@@ -316,6 +321,7 @@ function normalizeConfig(config = {}) {
 async function ensureConfig() {
   const config = await getConfig();
   await setConfig(config);
+  return config;
 }
 
 function buildRpcUrl(config) {
@@ -326,44 +332,171 @@ function buildRpcUrl(config) {
   return `${protocol}://${host}${port}${path}`;
 }
 
-function jsonRpcCall(endpoint, payload) {
-  return new Promise((resolve, reject) => {
+function buildRpcParams(config, params = []) {
+  return config.rpcSecret ? [`token:${config.rpcSecret}`, ...params] : params;
+}
+
+function rejectRpcPending(error) {
+  for (const { reject, timeout } of rpcPendingRequests.values()) {
+    clearTimeout(timeout);
+    reject(error);
+  }
+  rpcPendingRequests.clear();
+}
+
+function resetRpcSocket(error) {
+  if (rpcSocket) {
+    try {
+      rpcSocket.close();
+    } catch {
+      // WebSocket 可能已经关闭。
+    }
+  }
+  rpcSocket = null;
+  rpcEndpoint = "";
+  rpcConnecting = null;
+  if (error) {
+    rejectRpcPending(error);
+  }
+}
+
+function attachRpcSocketHandlers(socket, endpoint) {
+  socket.addEventListener("message", (event) => {
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (error) {
+      resetRpcSocket(error);
+      return;
+    }
+
+    const pending = rpcPendingRequests.get(data.id);
+    if (!pending) {
+      return;
+    }
+
+    clearTimeout(pending.timeout);
+    rpcPendingRequests.delete(data.id);
+
+    if (data.error) {
+      pending.reject(new Error(data.error.message || "aria2 返回错误"));
+      return;
+    }
+
+    pending.resolve(data.result);
+  });
+
+  socket.addEventListener("error", () => {
+    if (rpcSocket === socket) {
+      resetRpcSocket(new Error("无法连接 aria2 RPC"));
+    }
+  });
+
+  socket.addEventListener("close", () => {
+    if (rpcSocket === socket || rpcEndpoint === endpoint) {
+      resetRpcSocket(new Error("aria2 RPC 连接已断开"));
+    }
+  });
+}
+
+function ensureRpcSocket(endpoint) {
+  if (
+    rpcSocket &&
+    rpcEndpoint === endpoint &&
+    rpcSocket.readyState === WebSocket.OPEN
+  ) {
+    return Promise.resolve(rpcSocket);
+  }
+
+  if (rpcConnecting && rpcEndpoint === endpoint) {
+    return rpcConnecting;
+  }
+
+  resetRpcSocket();
+  rpcEndpoint = endpoint;
+
+  rpcConnecting = new Promise((resolve, reject) => {
     const socket = new WebSocket(endpoint);
+    rpcSocket = socket;
+    attachRpcSocketHandlers(socket, endpoint);
+
     const timeout = setTimeout(() => {
-      socket.close();
+      resetRpcSocket();
       reject(new Error("连接 aria2 超时"));
     }, 15000);
 
     socket.addEventListener("open", () => {
-      socket.send(JSON.stringify(payload));
-    });
-
-    socket.addEventListener("message", (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        clearTimeout(timeout);
-        socket.close();
-
-        if (data.error) {
-          reject(new Error(data.error.message || "aria2 返回错误"));
-          return;
-        }
-
-        resolve(data.result);
-      } catch (error) {
-        reject(error);
-      }
+      clearTimeout(timeout);
+      rpcConnecting = null;
+      resolve(socket);
     });
 
     socket.addEventListener("error", () => {
       clearTimeout(timeout);
       reject(new Error("无法连接 aria2 RPC"));
     });
-
-    socket.addEventListener("close", () => {
-      clearTimeout(timeout);
-    });
   });
+
+  return rpcConnecting;
+}
+
+function jsonRpcCall(endpoint, payload) {
+  return new Promise((resolve, reject) => {
+    ensureRpcSocket(endpoint)
+      .then((socket) => {
+        const timeout = setTimeout(() => {
+          rpcPendingRequests.delete(payload.id);
+          reject(new Error("aria2 响应超时"));
+        }, 15000);
+
+        rpcPendingRequests.set(payload.id, {
+          resolve,
+          reject,
+          timeout,
+        });
+
+        try {
+          socket.send(JSON.stringify(payload));
+        } catch (error) {
+          clearTimeout(timeout);
+          rpcPendingRequests.delete(payload.id);
+          resetRpcSocket(error);
+          reject(error);
+        }
+      })
+      .catch(reject);
+  });
+}
+
+async function preconnectAria2(config) {
+  try {
+    await ensureRpcSocket(buildRpcUrl(config || (await getConfig())));
+  } catch {
+    // 预连接失败不打断用户流程，点击发送时会再次尝试。
+  }
+}
+
+function startRpcKeepalive(config) {
+  if (rpcKeepaliveTimer) {
+    clearInterval(rpcKeepaliveTimer);
+    rpcKeepaliveTimer = null;
+  }
+
+  if (!config?.enabled) {
+    return;
+  }
+
+  rpcKeepaliveTimer = setInterval(() => {
+    const endpoint = buildRpcUrl(config);
+    const payload = {
+      jsonrpc: "2.0",
+      id: `aria2-keepalive-${crypto.randomUUID()}`,
+      method: "aria2.getVersion",
+      params: buildRpcParams(config),
+    };
+
+    jsonRpcCall(endpoint, payload).catch(() => undefined);
+  }, 45 * 1000);
 }
 
 async function getCookiesHeader(url) {
@@ -482,14 +615,11 @@ async function sendToAria2(url, context = {}) {
     }
   }
 
-  const params = config.rpcSecret
-    ? [`token:${config.rpcSecret}`, [url], options]
-    : [[url], options];
   const payload = {
     jsonrpc: "2.0",
-    id: `aria2-${Date.now()}`,
+    id: `aria2-${crypto.randomUUID()}`,
     method: "aria2.addUri",
-    params,
+    params: buildRpcParams(config, [[url], options]),
   };
 
   return jsonRpcCall(buildRpcUrl(config), payload);
@@ -552,6 +682,7 @@ async function createPromptFromIntercept(payload) {
     520
   );
   activePrompts.set(promptId, popup.id);
+  preconnectAria2().catch(() => undefined);
 }
 
 async function promptForContextLink(info, tab) {
@@ -576,6 +707,7 @@ async function promptForContextLink(info, tab) {
     520
   );
   activePrompts.set(promptId, popup.id);
+  preconnectAria2().catch(() => undefined);
 }
 
 function discardPrompt(promptId) {
@@ -737,7 +869,13 @@ browser.runtime.onMessage.addListener((message) => {
   }
 
   if (message.type === "save-config") {
-    return setConfig(message.payload || {}).then(() => ({ ok: true }));
+    return setConfig(message.payload || {}).then(async () => {
+      resetRpcSocket();
+      const config = await getConfig();
+      preconnectAria2(config).catch(() => undefined);
+      startRpcKeepalive(config);
+      return { ok: true };
+    });
   }
 
   if (message.type === "get-pending") {
@@ -823,4 +961,9 @@ browser.windows.onRemoved.addListener((windowId) => {
   }
 });
 createContextMenus();
-ensureConfig();
+ensureConfig()
+  .then((config) => {
+    preconnectAria2(config).catch(() => undefined);
+    startRpcKeepalive(config);
+  })
+  .catch(() => undefined);
