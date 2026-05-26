@@ -7,7 +7,7 @@
 - 自动监听浏览器下载，弹窗确认是否改用 aria2
 - 右键链接菜单: `用 aria2 下载该链接`
 - 尝试附带 Cookie、Referer、Origin、User-Agent、Authorization 等关键信息
-- 内置 aria2 RPC 配置页，默认填入给定服务器
+- 内置 aria2 RPC 配置页，默认使用本地 `ws://127.0.0.1:6800/jsonrpc`
 
 ## 使用
 

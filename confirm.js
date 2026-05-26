@@ -34,7 +34,7 @@ function parseHeaderLines(text) {
 }
 
 function setBusy(isBusy) {
-  for (const button of [elements.browser, elements.aria2, elements.cancel]) {
+  for (const button of [elements.browser, elements.aria2, elements.cancel, elements.resetHeaders]) {
     button.disabled = isBusy;
   }
 }
@@ -129,6 +129,10 @@ elements.aria2.addEventListener("click", () => submit("aria2"));
 elements.browser.addEventListener("click", () => submit("browser"));
 elements.resetHeaders.addEventListener("click", restoreAutoHeaders);
 elements.cancel.addEventListener("click", closePrompt);
+document.querySelector(".task-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  submit("aria2");
+});
 
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {

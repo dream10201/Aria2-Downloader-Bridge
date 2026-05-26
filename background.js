@@ -1,9 +1,9 @@
 const DEFAULT_CONFIG = {
   enabled: true,
   autoPrompt: true,
-  rpcProtocol: "wss",
-  rpcHost: "",
-  rpcPort: 443,
+  rpcProtocol: "ws",
+  rpcHost: "127.0.0.1",
+  rpcPort: 6800,
   rpcPath: "/jsonrpc",
   rpcSecret: "",
   downloadDir: "",
@@ -275,14 +275,42 @@ function getSuggestedFilename(headers = [], url = "") {
 
 async function getConfig() {
   const stored = await browser.storage.local.get("config");
-  return {
+  return normalizeConfig({
     ...DEFAULT_CONFIG,
     ...(stored.config || {}),
-  };
+  });
 }
 
 async function setConfig(config) {
-  await browser.storage.local.set({ config });
+  await browser.storage.local.set({ config: normalizeConfig(config) });
+}
+
+function normalizeConfig(config = {}) {
+  const merged = {
+    ...DEFAULT_CONFIG,
+    ...config,
+  };
+  const protocol = merged.rpcProtocol === "wss" ? "wss" : "ws";
+  const parsedPort = Number(merged.rpcPort);
+  const rpcPort =
+    Number.isInteger(parsedPort) && parsedPort >= 1 && parsedPort <= 65535
+      ? parsedPort
+      : DEFAULT_CONFIG.rpcPort;
+
+  return {
+    ...merged,
+    enabled: Boolean(merged.enabled),
+    autoPrompt: Boolean(merged.autoPrompt),
+    rpcProtocol: protocol,
+    rpcHost: String(merged.rpcHost || DEFAULT_CONFIG.rpcHost).trim(),
+    rpcPort,
+    rpcPath: String(merged.rpcPath || DEFAULT_CONFIG.rpcPath).trim(),
+    rpcSecret: String(merged.rpcSecret || ""),
+    downloadDir: String(merged.downloadDir || "").trim(),
+    userAgentMode: merged.userAgentMode === "captured" ? "captured" : "browser",
+    basicHeadersOnly: Boolean(merged.basicHeadersOnly),
+    extraHeaderNames: String(merged.extraHeaderNames || "").trim(),
+  };
 }
 
 async function ensureConfig() {
@@ -454,15 +482,14 @@ async function sendToAria2(url, context = {}) {
     }
   }
 
+  const params = config.rpcSecret
+    ? [`token:${config.rpcSecret}`, [url], options]
+    : [[url], options];
   const payload = {
     jsonrpc: "2.0",
     id: `aria2-${Date.now()}`,
     method: "aria2.addUri",
-    params: [
-      `token:${config.rpcSecret}`,
-      [url],
-      options,
-    ],
+    params,
   };
 
   return jsonRpcCall(buildRpcUrl(config), payload);
@@ -522,7 +549,7 @@ async function createPromptFromIntercept(payload) {
   const popup = await openCenteredPopup(
     browser.runtime.getURL(`confirm.html?id=${encodeURIComponent(promptId)}`),
     620,
-    450
+    520
   );
   activePrompts.set(promptId, popup.id);
 }
@@ -546,9 +573,14 @@ async function promptForContextLink(info, tab) {
   const popup = await openCenteredPopup(
     browser.runtime.getURL(`confirm.html?id=${encodeURIComponent(promptId)}`),
     620,
-    450
+    520
   );
   activePrompts.set(promptId, popup.id);
+}
+
+function discardPrompt(promptId) {
+  activePrompts.delete(promptId);
+  pendingDecisions.delete(promptId);
 }
 
 async function restartBrowserDownload(pending) {
@@ -665,17 +697,20 @@ browser.webRequest.onErrorOccurred.addListener(
   { urls: ["<all_urls>"] }
 );
 
-browser.contextMenus.create({
-  id: "send-link-to-aria2",
-  title: msg("menu_send_link_to_aria2", "Download this link with aria2"),
-  contexts: ["link"],
-});
+async function createContextMenus() {
+  await browser.contextMenus.removeAll().catch(() => undefined);
+  browser.contextMenus.create({
+    id: "send-link-to-aria2",
+    title: msg("menu_send_link_to_aria2", "Download this link with aria2"),
+    contexts: ["link"],
+  });
 
-browser.contextMenus.create({
-  id: "open-aria2-options",
-  title: msg("menu_open_options", "Aria2 Download Settings"),
-  contexts: ["browser_action"],
-});
+  browser.contextMenus.create({
+    id: "open-aria2-options",
+    title: msg("menu_open_options", "Aria2 Download Settings"),
+    contexts: ["browser_action"],
+  });
+}
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "send-link-to-aria2" && info.linkUrl) {
@@ -702,11 +737,7 @@ browser.runtime.onMessage.addListener((message) => {
   }
 
   if (message.type === "save-config") {
-    return setConfig({
-      ...DEFAULT_CONFIG,
-      preserveCustomHeaders: undefined,
-      ...(message.payload || {}),
-    }).then(() => ({ ok: true }));
+    return setConfig(message.payload || {}).then(() => ({ ok: true }));
   }
 
   if (message.type === "get-pending") {
@@ -734,26 +765,25 @@ browser.runtime.onMessage.addListener((message) => {
             ...pending,
             aria2Headers: pending.autoAria2Headers || undefined,
           });
-          pendingDecisions.delete(message.id);
+          discardPrompt(message.id);
           return { ok: true, mode: "browser" };
         }
 
         if (message.action === "aria2") {
           await sendToAria2(pending.url, pending);
-          pendingDecisions.delete(message.id);
+          discardPrompt(message.id);
           return { ok: true, mode: "aria2" };
         }
       }
 
-      pendingDecisions.delete(message.id);
+      discardPrompt(message.id);
       return { ok: true, mode: "cancelled" };
     })();
   }
 
   if (message.type === "close-prompt") {
     const windowId = activePrompts.get(message.id);
-    activePrompts.delete(message.id);
-    pendingDecisions.delete(message.id);
+    discardPrompt(message.id);
     if (windowId) {
       return browser.windows.remove(windowId).catch(() => undefined);
     }
@@ -784,4 +814,13 @@ async function cleanupHeaderCache() {
 }
 
 setInterval(cleanupHeaderCache, 60 * 1000);
+browser.windows.onRemoved.addListener((windowId) => {
+  for (const [promptId, promptWindowId] of activePrompts.entries()) {
+    if (promptWindowId === windowId) {
+      discardPrompt(promptId);
+      break;
+    }
+  }
+});
+createContextMenus();
 ensureConfig();

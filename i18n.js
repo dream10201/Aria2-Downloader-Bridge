@@ -20,6 +20,9 @@ const I18N_MESSAGES = {
     options_extra_header_names: "Additional forwarded header names",
     options_extra_header_names_placeholder:
       "One per line, or comma-separated, for example\nx-csrf-token\nx-requested-with",
+    options_section_general: "Operation",
+    options_section_rpc: "RPC connection",
+    options_section_headers: "Request headers",
     options_save: "Save settings",
     options_note_title: "Notes",
     options_note_primary:
@@ -29,6 +32,7 @@ const I18N_MESSAGES = {
     options_status_loaded: "Current settings loaded.",
     options_status_saved: "Settings saved.",
     options_status_load_failed: "Failed to load settings",
+    options_status_save_failed: "Failed to save settings",
 
     confirm_page_title: "Choose Download Method",
     confirm_caption: "Download Intercepted",
@@ -73,6 +77,9 @@ const I18N_MESSAGES = {
     options_extra_header_names: "额外透传 Header 名称",
     options_extra_header_names_placeholder:
       "每行一个，或用逗号分隔，例如\nx-csrf-token\nx-requested-with",
+    options_section_general: "运行方式",
+    options_section_rpc: "RPC 连接",
+    options_section_headers: "请求头",
     options_save: "保存设置",
     options_note_title: "说明",
     options_note_primary:
@@ -82,6 +89,7 @@ const I18N_MESSAGES = {
     options_status_loaded: "已加载当前设置。",
     options_status_saved: "设置已保存。",
     options_status_load_failed: "设置读取失败",
+    options_status_save_failed: "设置保存失败",
 
     confirm_page_title: "选择下载方式",
     confirm_caption: "下载拦截",

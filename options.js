@@ -16,8 +16,17 @@ const status = document.getElementById("status");
 const form = document.getElementById("form");
 const i18n = window.appI18n;
 
-function setStatus(message) {
+function setStatus(message, state = "") {
   status.textContent = message;
+  if (state) {
+    status.dataset.state = state;
+  } else {
+    delete status.dataset.state;
+  }
+}
+
+function setBusy(isBusy) {
+  form.querySelector("button[type='submit']").disabled = isBusy;
 }
 
 i18n.apply();
@@ -39,6 +48,8 @@ async function loadConfig() {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  setBusy(true);
+  setStatus("");
   const payload = {
     enabled: fields.enabled.checked,
     autoPrompt: fields.autoPrompt.checked,
@@ -53,14 +64,20 @@ form.addEventListener("submit", async (event) => {
     extraHeaderNames: fields.extraHeaderNames.value.trim(),
   };
 
-  await browser.runtime.sendMessage({
-    type: "save-config",
-    payload,
-  });
+  try {
+    await browser.runtime.sendMessage({
+      type: "save-config",
+      payload,
+    });
 
-  setStatus(i18n.t("options_status_saved"));
+    setStatus(i18n.t("options_status_saved"), "success");
+  } catch (error) {
+    setStatus(error.message || i18n.t("options_status_save_failed"), "error");
+  } finally {
+    setBusy(false);
+  }
 });
 
 loadConfig()
   .then(() => setStatus(i18n.t("options_status_loaded")))
-  .catch((error) => setStatus(error.message || i18n.t("options_status_load_failed")));
+  .catch((error) => setStatus(error.message || i18n.t("options_status_load_failed"), "error"));
