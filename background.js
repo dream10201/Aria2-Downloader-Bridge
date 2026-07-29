@@ -31,6 +31,7 @@ const EXCLUDED_APPLICATION_TYPES = new Set([
   "ecmascript",
   "x-ecmascript",
   "xhtml+xml",
+  "pdf",
 ]);
 
 function msg(key, fallback = "") {
@@ -522,10 +523,10 @@ async function buildAria2Headers(url, context = {}) {
   const config = await getConfig();
   const normalizedUrl = normalizeUrl(url);
   const capturedHeaders = pickUsefulHeaders(
-    context.capturedHeaders ||
-      requestHeadersByUrl.get(normalizedUrl) ||
-      requestHeadersByUrl.get(url) ||
-      [],
+    (Array.isArray(context.capturedHeaders) && context.capturedHeaders.length
+      ? context.capturedHeaders
+      : requestHeadersByUrl.get(normalizedUrl)?.headers ||
+        requestHeadersByUrl.get(url)?.headers) || [],
     config
   );
   const headerMap = headersToMap(capturedHeaders);
@@ -662,41 +663,14 @@ async function openCenteredPopup(url, width, height) {
   });
 }
 
-async function createPromptFromIntercept(payload) {
-  const aria2Headers = await buildAria2Headers(payload.url, payload);
-  const promptId = crypto.randomUUID();
-  pendingDecisions.set(promptId, {
-    type: payload.type || "intercepted-download",
-    url: payload.url,
-    filename: extractFileName(payload.filename || "", payload.url),
-    referrer: payload.referrer || "",
-    tabId: payload.tabId,
-    capturedHeaders: payload.capturedHeaders || [],
-    autoAria2Headers: aria2Headers,
-    aria2Headers,
-  });
-
-  const popup = await openCenteredPopup(
-    browser.runtime.getURL(`confirm.html?id=${encodeURIComponent(promptId)}`),
-    620,
-    520
-  );
-  activePrompts.set(promptId, popup.id);
-  preconnectAria2().catch(() => undefined);
-}
-
-async function promptForContextLink(info, tab) {
-  const context = {
-    type: "context-link",
-    url: info.linkUrl,
-    filename: "",
-    referrer: info.pageUrl || tab?.url || "",
-    capturedHeaders: [],
-  };
+async function openPrompt(context) {
   const aria2Headers = await buildAria2Headers(context.url, context);
   const promptId = crypto.randomUUID();
   pendingDecisions.set(promptId, {
     ...context,
+    filename: extractFileName(context.filename || "", context.url),
+    referrer: context.referrer || "",
+    capturedHeaders: context.capturedHeaders || [],
     autoAria2Headers: aria2Headers,
     aria2Headers,
   });
@@ -726,7 +700,7 @@ async function restartBrowserDownload(pending) {
   });
 
   ignoredDownloadUrls.set(normalizeUrl(pending.url), Date.now());
-  const downloadId = await browser.downloads.download({
+  await browser.downloads.download({
     url: pending.url,
     filename: extractFileName(pending.filename, pending.url) || undefined,
     saveAs: false,
@@ -745,24 +719,23 @@ async function openTabDownload(pending) {
 }
 
 browser.webRequest.onBeforeSendHeaders.addListener(
-  async (details) => {
+  (details) => {
     if (!details.url.startsWith("http")) {
-      return {};
+      return;
     }
 
-    const config = await getConfig();
+    // 只记录原始请求头，发送给 aria2 时再按最新配置过滤。
     const normalizedUrl = normalizeUrl(details.url);
-    const headers = pickUsefulHeaders(details.requestHeaders || [], config);
-    requestHeadersByRequestId.set(details.requestId, {
+    const entry = {
       url: normalizedUrl,
-      headers,
+      headers: cloneHeaders(details.requestHeaders || []),
       time: Date.now(),
-    });
-    requestHeadersByUrl.set(normalizedUrl, headers);
-    return { requestHeaders: details.requestHeaders };
+    };
+    requestHeadersByRequestId.set(details.requestId, entry);
+    requestHeadersByUrl.set(normalizedUrl, entry);
   },
   { urls: ["<all_urls>"] },
-  ["blocking", "requestHeaders"]
+  ["requestHeaders"]
 );
 
 browser.webRequest.onCompleted.addListener(
@@ -814,7 +787,7 @@ browser.webRequest.onHeadersReceived.addListener(
         time: Date.now(),
       });
 
-      createPromptFromIntercept(pendingIntercepts.get(normalizedUrl)).catch(() => undefined);
+      openPrompt(pendingIntercepts.get(normalizedUrl)).catch(() => undefined);
       return { cancel: true };
     });
   },
@@ -846,7 +819,12 @@ async function createContextMenus() {
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "send-link-to-aria2" && info.linkUrl) {
-    await promptForContextLink(info, tab);
+    await openPrompt({
+      type: "context-link",
+      url: info.linkUrl,
+      filename: "",
+      referrer: info.pageUrl || tab?.url || "",
+    });
     return;
   }
 
@@ -935,6 +913,12 @@ async function cleanupHeaderCache() {
   for (const [requestId, item] of requestHeadersByRequestId.entries()) {
     if (item.time < expireBefore) {
       requestHeadersByRequestId.delete(requestId);
+    }
+  }
+
+  for (const [url, item] of requestHeadersByUrl.entries()) {
+    if (item.time < expireBefore) {
+      requestHeadersByUrl.delete(url);
     }
   }
 

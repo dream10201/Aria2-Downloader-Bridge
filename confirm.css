@@ -1,16 +1,40 @@
 :root {
-  color-scheme: light;
-  --bg: #f4f6f8;
+  color-scheme: light dark;
+  --bg: #f2f4f7;
   --panel: #ffffff;
-  --panel-soft: #f8fafc;
-  --ink: #17202a;
-  --muted: #667085;
-  --line: #d7dde5;
-  --line-soft: #e8edf3;
+  --panel-soft: #f7f9fb;
+  --ink: #182230;
+  --muted: #5f6b7a;
+  --line: #d6dde6;
+  --line-soft: #e7ecf2;
+  --field-bg: #ffffff;
+  --field-readonly: #f7f9fb;
   --accent: #0a7c66;
   --accent-strong: #075f4e;
-  --danger: #b42318;
-  --radius: 8px;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(10, 124, 102, 0.12);
+  --danger: #d92d20;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161b;
+    --panel: #1d2026;
+    --panel-soft: #242830;
+    --ink: #e7eaf0;
+    --muted: #98a2b3;
+    --line: #3a414b;
+    --line-soft: #2c313a;
+    --field-bg: #171a1f;
+    --field-readonly: #22262e;
+    --accent: #34c3a2;
+    --accent-strong: #52d6b8;
+    --accent-contrast: #06251d;
+    --accent-soft: rgba(52, 195, 162, 0.16);
+    --danger: #f97066;
+  }
 }
 
 * {
@@ -28,9 +52,11 @@ body {
   display: flex;
   flex-direction: column;
   color: var(--ink);
-  background: var(--bg);
+  background: var(--panel);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -44,7 +70,7 @@ textarea {
   min-height: 100vh;
   flex-direction: column;
   gap: 14px;
-  padding: 18px;
+  padding: 20px;
   background: var(--panel);
 }
 
@@ -59,14 +85,19 @@ textarea {
 
 .dialog-caption {
   margin: 0 0 4px;
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 h1 {
   margin: 0;
-  font-size: 21px;
+  font-size: 20px;
+  font-weight: 650;
   line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .input-grid {
@@ -82,6 +113,7 @@ h1 {
 
 .input-label > span {
   color: var(--muted);
+  font-size: 13px;
   text-align: right;
 }
 
@@ -90,9 +122,10 @@ h1 {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: var(--radius-sm);
+  background: var(--field-bg);
   color: var(--ink);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .input-label > input {
@@ -101,15 +134,23 @@ h1 {
 }
 
 .input-label > input[readonly] {
-  color: #344054;
-  background: var(--panel-soft);
+  color: var(--muted);
+  background: var(--field-readonly);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+}
+
+.input-label > input:hover,
+.header-preview > textarea:hover {
+  border-color: var(--muted);
 }
 
 .input-label > input:focus,
 .header-preview > textarea:focus {
   border-color: var(--accent);
-  outline: 2px solid rgba(10, 124, 102, 0.14);
-  outline-offset: 0;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .header-card {
@@ -119,11 +160,13 @@ h1 {
 }
 
 .header-preview {
-  padding: 11px 12px;
+  padding: 11px 14px;
 }
 
 .header-preview > summary {
   color: var(--ink);
+  font-size: 13px;
+  font-weight: 550;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -134,7 +177,7 @@ h1 {
 }
 
 .header-preview > summary::before {
-  content: ">";
+  content: "›";
   display: inline-block;
   width: 14px;
   margin-right: 4px;
@@ -154,11 +197,14 @@ h1 {
 
 .header-preview > textarea {
   min-height: 116px;
-  max-height: 180px;
+  max-height: 200px;
   margin-top: 8px;
   padding: 9px 10px;
   resize: vertical;
   white-space: pre;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .message-stack {
@@ -172,11 +218,12 @@ h1 {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .status {
   min-height: 18px;
+  transition: color 150ms ease;
 }
 
 .status[data-state="error"] {
@@ -192,7 +239,7 @@ h1 {
   justify-content: flex-end;
   gap: 10px;
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid var(--line-soft);
 }
 
@@ -201,41 +248,57 @@ h1 {
   align-items: center;
   justify-content: center;
   min-width: 118px;
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 16px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
   color: var(--ink);
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .dialog-button:hover {
   background: var(--panel-soft);
+  border-color: var(--muted);
+}
+
+.dialog-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .dialog-button:disabled {
   cursor: wait;
-  opacity: 0.65;
+  opacity: 0.6;
 }
 
 .primary {
-  color: #ffffff;
-  border-color: var(--accent-strong);
+  color: var(--accent-contrast);
+  border-color: transparent;
   background: var(--accent);
+  font-weight: 600;
 }
 
 .primary:hover {
   background: var(--accent-strong);
+  border-color: transparent;
 }
 
 .close-button {
   min-width: 34px;
   min-height: 34px;
   padding: 0;
+  border-color: transparent;
+  border-radius: 50%;
   color: var(--muted);
   font-size: 20px;
   line-height: 1;
+}
+
+.close-button:hover {
+  color: var(--ink);
+  border-color: transparent;
 }
 
 .subtle-button {
